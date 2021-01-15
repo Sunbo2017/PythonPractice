@@ -1,0 +1,16 @@
+oslo.config
+Flask
+gevent
+simplejson
+Flask_SocketIO
+SQLAlchemy
+oslo.db
+requests
+eventlet
+oslo_config
+oslo_db
+oslo.utils
+paho_mqtt
+gunicorn
+redis
+oslo.serialization

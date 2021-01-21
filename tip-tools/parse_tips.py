@@ -130,6 +130,9 @@ def get_section_paragraph_contents(bs, name):
 def get_section_code_content(bs):
     content_dict = {}
     sections = bs.find_all()
+    isTable = False
+    if sections[0].name == 'table':
+        isTable = True
     if sections and len(sections) > 0:
         content_list = []
         h3_key = ''
@@ -165,11 +168,15 @@ def get_section_code_content(bs):
                 content_list = []
             else:
                 # content_list.append(section.text)
-                if section.name == 'p' and section.parent.name != 'td':
-                    # print(section.text)
-                    # remove \xa0 \n
-                    # content_list.append(''.join(str(section.text).split()))
-                    content_list.append(str_format(section.text))
+                if section.name == 'p':
+                    # if root section is table, add p
+                    if isTable:
+                        content_list.append(str_format(section.text))
+                    elif section.parent.name != 'td':
+                        # print(section.text)
+                        # remove \xa0 \n
+                        # content_list.append(''.join(str(section.text).split()))
+                        content_list.append(str_format(section.text))
                 elif section.name == 'table':
                     # print(section.text)
                     # remove \xa0 \n
@@ -227,17 +234,19 @@ def find_repeat_nums():
 
 def find_new_nums():
     num_list = []
-    with open('D:\\tips\\tip-nums-repeat', 'r') as fn:
+    with open('D:\\tips\\nums.txt', 'r') as fn:
         for num in fn.readlines():
-            num_list.append(num.rstrip('\n'))
+            num = num.rstrip()
+            if num not in num_list:
+                num_list.append(num)
 
     target = open('D:\\tips\\tip-nums-new', 'a+')
     new_num = 0
-    with open('D:\\tips\\tip-nums', 'r') as f:
+    with open('D:\\tips\\nums.txt', 'r') as f:
         line = f.readline()
         while line:
-            tip_num = line.rstrip('\n')
-            print(tip_num)
+            tip_num = line.rstrip()
+            # print(tip_num)
             if tip_num not in num_list:
                 new_num += 1
                 print('new:{}'.format(tip_num))
@@ -735,14 +744,12 @@ def get_tips_queue():
     num_list = []
     with open(num_file, 'r') as fn:
         for num in fn.readlines():
-            num_list.append(num.rstrip('\n'))
+            num = num.rstrip()
+            if num not in num_list:
+                num_list.append(num)
 
     # download html
-    for num in num_list:
-        url = base_url + num
-        html_content = request.urlopen(url).read()
-        with open(os.path.join(work_dir, num), "wb") as f:
-            f.write(html_content)
+    download_tips(num_list, work_dir)
 
     for parent, dirnames, filenames in os.walk(work_dir, followlinks=True):
         for filename in filenames:
@@ -754,6 +761,16 @@ def get_tips_queue():
     return tq
 
 
+def download_tips(num_list, work_dir):
+    for num in num_list:
+        url = base_url + num
+        html_content = request.urlopen(url).read()
+        with open(os.path.join(work_dir, num), "wb") as f:
+            f.write(html_content)
+            print('{} download successful'.format(num))
+    print('all html download successful...')
+
+
 def parse_lenovo_tips():
     start_time = time.time()
 
@@ -763,8 +780,6 @@ def parse_lenovo_tips():
 
     while not tq.empty():
         file_path = tq.get()
-        tip_number = file_path.split('/')[-1]
-        # tip_number = file_path.split('\\')[-1]
 
         content = get_content(file_path)
         print(file_path)
@@ -774,6 +789,12 @@ def parse_lenovo_tips():
         if js_objs is None:
             continue
 
+        if '\\' in file_path:
+            file_path = file_path.replace('\\', '/')
+        print(file_path)
+        tip_number = file_path.split('/')[-1]
+        # tip_number = file_path[-8:]
+        # tip_number = file_path.split('\\')[-1]
         for js_obj in js_objs:
             jses = js_obj.contents
             if len(jses) <= 0:
@@ -841,6 +862,7 @@ def parse_lenovo_tips():
                 # print(json_tip)
                 target.write(json_tip)
                 target.write('\n')
+                print('parse {} successful'.format(tip_number))
     #
     #     row = [file_path, tip_number, title, level, symptom, workaround, solution, additional_information,
     #            str(affected_configuration), str(affected_types), cogent_draft, publish_date, tip_type]
@@ -854,10 +876,31 @@ def parse_lenovo_tips():
     print('Elapsed time: ', end_time - start_time)
 
 
+def read_tip_number():
+    num_list = []
+    json_file = 'D:\\workFile\\kb-all_200831.json'
+    with open(json_file, "r") as f:
+        for line in f.readlines():
+            json_obj = json.loads(line)
+            tip_number = json_obj['tip_number']
+            if tip_number.startswith('HT'):
+                print(tip_number)
+                if '\\' in tip_number:
+                    tip_number = tip_number.split('\\')[0]
+                num_list.append(tip_number)
+
+    with open('./nums.txt', "w+") as f:
+        for num in num_list:
+            f.write(num)
+            f.write('\n')
+
+
 if __name__ == '__main__':
     print('-------------------------------- start parse lenovo tips -------------------------------')
 
     parse_lenovo_tips()
+    # read_tip_number()
+
     # find_repeat_nums()
     # find_new_nums()
 
